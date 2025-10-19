@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MobilePickController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pick-execution-service</a> &gt; <a href="index.source.html" class="el_package">com.paklog.wes.pick.adapter.rest.controller</a> &gt; <span class="el_source">MobilePickController.java</span></div><h1>MobilePickController.java</h1><pre class="source lang-java linenums">package com.paklog.wes.pick.adapter.rest.controller;
+
+import com.paklog.wes.pick.adapter.rest.dto.ConfirmPickRequest;
+import com.paklog.wes.pick.adapter.rest.dto.PickInstructionDto;
+import com.paklog.wes.pick.adapter.rest.dto.SessionResponse;
+import com.paklog.wes.pick.adapter.rest.dto.ShortPickRequest;
+import com.paklog.wes.pick.application.command.ConfirmPickCommand;
+import com.paklog.wes.pick.application.command.HandleShortPickCommand;
+import com.paklog.wes.pick.application.service.PickSessionService;
+import com.paklog.wes.pick.domain.aggregate.PickSession;
+import com.paklog.wes.pick.domain.entity.PickInstruction;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+/**
+ * Mobile-optimized REST controller for workers
+ * Simplified API for warehouse floor operations
+ */
+@RestController
+@RequestMapping(&quot;/api/v1/mobile/picks&quot;)
+public class MobilePickController {
+
+    private final PickSessionService pickSessionService;
+
+<span class="fc" id="L29">    public MobilePickController(PickSessionService pickSessionService) {</span>
+<span class="fc" id="L30">        this.pickSessionService = pickSessionService;</span>
+<span class="fc" id="L31">    }</span>
+
+    /**
+     * Get worker's active session
+     */
+    @GetMapping(&quot;/my-session&quot;)
+    public ResponseEntity&lt;SessionResponse&gt; getMySession(@RequestHeader(&quot;X-Worker-Id&quot;) String workerId) {
+<span class="fc" id="L38">        Optional&lt;PickSession&gt; session = pickSessionService.getActiveSessionForWorker(workerId);</span>
+
+<span class="fc bfc" id="L40" title="All 2 branches covered.">        if (session.isEmpty()) {</span>
+<span class="fc" id="L41">            return ResponseEntity.notFound().build();</span>
+        }
+
+<span class="fc" id="L44">        return ResponseEntity.ok(toResponse(session.get()));</span>
+    }
+
+    /**
+     * Get current instruction to pick
+     */
+    @GetMapping(&quot;/current-instruction&quot;)
+    public ResponseEntity&lt;PickInstructionDto&gt; getCurrentInstruction(@RequestHeader(&quot;X-Worker-Id&quot;) String workerId) {
+<span class="fc" id="L52">        Optional&lt;PickSession&gt; session = pickSessionService.getActiveSessionForWorker(workerId);</span>
+
+<span class="pc bpc" id="L54" title="1 of 2 branches missed.">        if (session.isEmpty()) {</span>
+<span class="nc" id="L55">            return ResponseEntity.notFound().build();</span>
+        }
+
+<span class="fc" id="L58">        PickInstruction instruction = session.get().getCurrentInstruction();</span>
+<span class="pc bpc" id="L59" title="1 of 2 branches missed.">        if (instruction == null) {</span>
+<span class="nc" id="L60">            return ResponseEntity.noContent().build();</span>
+        }
+
+<span class="fc" id="L63">        return ResponseEntity.ok(toInstructionDto(instruction));</span>
+    }
+
+    /**
+     * Confirm current pick (simplified - no instruction ID needed)
+     */
+    @PostMapping(&quot;/confirm&quot;)
+    public ResponseEntity&lt;SessionResponse&gt; confirmPick(
+            @RequestHeader(&quot;X-Worker-Id&quot;) String workerId,
+            @Valid @RequestBody ConfirmPickRequest request
+    ) {
+<span class="fc" id="L74">        Optional&lt;PickSession&gt; session = pickSessionService.getActiveSessionForWorker(workerId);</span>
+
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">        if (session.isEmpty()) {</span>
+<span class="nc" id="L77">            return ResponseEntity.notFound().build();</span>
+        }
+
+<span class="fc" id="L80">        ConfirmPickCommand command = new ConfirmPickCommand(</span>
+<span class="fc" id="L81">                session.get().getSessionId(),</span>
+<span class="fc" id="L82">                request.instructionId(),</span>
+<span class="fc" id="L83">                request.quantity()</span>
+        );
+
+<span class="fc" id="L86">        PickSession updatedSession = pickSessionService.confirmPick(command);</span>
+<span class="fc" id="L87">        return ResponseEntity.ok(toResponse(updatedSession));</span>
+    }
+
+    /**
+     * Report short pick
+     */
+    @PostMapping(&quot;/short-pick&quot;)
+    public ResponseEntity&lt;SessionResponse&gt; shortPick(
+            @RequestHeader(&quot;X-Worker-Id&quot;) String workerId,
+            @Valid @RequestBody ShortPickRequest request
+    ) {
+<span class="fc" id="L98">        Optional&lt;PickSession&gt; session = pickSessionService.getActiveSessionForWorker(workerId);</span>
+
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">        if (session.isEmpty()) {</span>
+<span class="nc" id="L101">            return ResponseEntity.notFound().build();</span>
+        }
+
+<span class="fc" id="L104">        HandleShortPickCommand command = new HandleShortPickCommand(</span>
+<span class="fc" id="L105">                session.get().getSessionId(),</span>
+<span class="fc" id="L106">                request.instructionId(),</span>
+<span class="fc" id="L107">                request.actualQuantity(),</span>
+<span class="fc" id="L108">                request.reason()</span>
+        );
+
+<span class="fc" id="L111">        PickSession updatedSession = pickSessionService.handleShortPick(command);</span>
+<span class="fc" id="L112">        return ResponseEntity.ok(toResponse(updatedSession));</span>
+    }
+
+    /**
+     * Get session progress
+     */
+    @GetMapping(&quot;/progress&quot;)
+    public ResponseEntity&lt;PickSessionService.SessionProgress&gt; getProgress(@RequestHeader(&quot;X-Worker-Id&quot;) String workerId) {
+<span class="fc" id="L120">        Optional&lt;PickSession&gt; session = pickSessionService.getActiveSessionForWorker(workerId);</span>
+
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">        if (session.isEmpty()) {</span>
+<span class="nc" id="L123">            return ResponseEntity.notFound().build();</span>
+        }
+
+<span class="fc" id="L126">        PickSessionService.SessionProgress progress = pickSessionService.getSessionProgress(session.get().getSessionId());</span>
+<span class="fc" id="L127">        return ResponseEntity.ok(progress);</span>
+    }
+
+    // Helper methods
+
+    private SessionResponse toResponse(PickSession session) {
+<span class="fc" id="L133">        return new SessionResponse(</span>
+<span class="fc" id="L134">                session.getSessionId(),</span>
+<span class="fc" id="L135">                session.getTaskId(),</span>
+<span class="fc" id="L136">                session.getWorkerId(),</span>
+<span class="fc" id="L137">                session.getWarehouseId(),</span>
+<span class="fc" id="L138">                session.getStrategy(),</span>
+<span class="fc" id="L139">                session.getStatus(),</span>
+<span class="fc" id="L140">                session.getCartId(),</span>
+<span class="fc" id="L141">                session.getPickInstructions().stream()</span>
+<span class="fc" id="L142">                        .map(this::toInstructionDto)</span>
+<span class="fc" id="L143">                        .collect(Collectors.toList()),</span>
+<span class="fc" id="L144">                session.getCurrentInstructionIndex(),</span>
+<span class="fc" id="L145">                session.getCreatedAt(),</span>
+<span class="fc" id="L146">                session.getStartedAt(),</span>
+<span class="fc" id="L147">                session.getCompletedAt(),</span>
+<span class="fc" id="L148">                session.getProgress(),</span>
+<span class="fc" id="L149">                session.calculateAccuracy(),</span>
+<span class="fc" id="L150">                session.getCompletedInstructionCount(),</span>
+<span class="fc" id="L151">                session.getPickInstructions().size(),</span>
+<span class="fc" id="L152">                session.getShortPickCount()</span>
+        );
+    }
+
+    private PickInstructionDto toInstructionDto(PickInstruction instruction) {
+<span class="fc" id="L157">        return new PickInstructionDto(</span>
+<span class="fc" id="L158">                instruction.getInstructionId(),</span>
+<span class="fc" id="L159">                instruction.getItemSku(),</span>
+<span class="fc" id="L160">                instruction.getItemDescription(),</span>
+<span class="fc" id="L161">                instruction.getExpectedQuantity(),</span>
+<span class="fc" id="L162">                instruction.getPickedQuantity(),</span>
+<span class="fc" id="L163">                instruction.getLocation(),</span>
+<span class="fc" id="L164">                instruction.getOrderId(),</span>
+<span class="fc" id="L165">                instruction.getStatus(),</span>
+<span class="fc" id="L166">                instruction.getSequenceNumber(),</span>
+<span class="fc" id="L167">                instruction.getPriority()</span>
+        );
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StartPickSessionCommand.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pick-execution-service</a> &gt; <a href="index.source.html" class="el_package">com.paklog.wes.pick.application.command</a> &gt; <span class="el_source">StartPickSessionCommand.java</span></div><h1>StartPickSessionCommand.java</h1><pre class="source lang-java linenums">package com.paklog.wes.pick.application.command;
+
+import com.paklog.wes.pick.domain.entity.PickInstruction;
+import com.paklog.wes.pick.domain.valueobject.PickStrategy;
+
+import java.util.List;
+import java.util.Objects;
+
+/**
+ * Command to start a new pick session
+ */
+public record StartPickSessionCommand(
+        String taskId,
+        String workerId,
+        String warehouseId,
+        PickStrategy strategy,
+        String cartId,
+        List&lt;PickInstruction&gt; instructions
+) {
+<span class="fc" id="L20">    public StartPickSessionCommand {</span>
+<span class="fc" id="L21">        Objects.requireNonNull(taskId, &quot;Task ID cannot be null&quot;);</span>
+<span class="fc" id="L22">        Objects.requireNonNull(workerId, &quot;Worker ID cannot be null&quot;);</span>
+<span class="fc" id="L23">        Objects.requireNonNull(warehouseId, &quot;Warehouse ID cannot be null&quot;);</span>
+<span class="fc" id="L24">        Objects.requireNonNull(strategy, &quot;Strategy cannot be null&quot;);</span>
+<span class="fc" id="L25">        Objects.requireNonNull(cartId, &quot;Cart ID cannot be null&quot;);</span>
+<span class="fc" id="L26">        Objects.requireNonNull(instructions, &quot;Instructions cannot be null&quot;);</span>
+
+<span class="pc bpc" id="L28" title="1 of 2 branches missed.">        if (instructions.isEmpty()) {</span>
+<span class="nc" id="L29">            throw new IllegalArgumentException(&quot;Instructions cannot be empty&quot;);</span>
+        }
+<span class="fc" id="L31">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

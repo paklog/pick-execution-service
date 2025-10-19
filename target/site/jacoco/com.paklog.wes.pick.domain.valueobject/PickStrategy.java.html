@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PickStrategy.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pick-execution-service</a> &gt; <a href="index.source.html" class="el_package">com.paklog.wes.pick.domain.valueobject</a> &gt; <span class="el_source">PickStrategy.java</span></div><h1>PickStrategy.java</h1><pre class="source lang-java linenums">package com.paklog.wes.pick.domain.valueobject;
+
+/**
+ * Pick strategy determines how items are picked
+ * Different strategies optimize for different warehouse layouts and order patterns
+ */
+<span class="fc" id="L7">public enum PickStrategy {</span>
+
+    /**
+     * Single order picking - one order at a time
+     * Simple, good for small orders or priority orders
+     */
+<span class="fc" id="L13">    SINGLE,</span>
+
+    /**
+     * Batch picking - multiple orders with same SKU picked together
+     * Efficient for orders with common items
+     */
+<span class="fc" id="L19">    BATCH,</span>
+
+    /**
+     * Zone picking - all items in a zone picked by one worker
+     * Good for large warehouses with zone specialization
+     */
+<span class="fc" id="L25">    ZONE,</span>
+
+    /**
+     * Wave picking - orders grouped into waves and picked together
+     * Balances workload across warehouse
+     */
+<span class="fc" id="L31">    WAVE,</span>
+
+    /**
+     * Cluster picking - multiple orders picked to same cart
+     * Put wall required for order consolidation
+     */
+<span class="fc" id="L37">    CLUSTER;</span>
+
+    public boolean requiresPutWall() {
+<span class="fc bfc" id="L40" title="All 4 branches covered.">        return this == CLUSTER || this == BATCH;</span>
+    }
+
+    public boolean supportsMultipleOrders() {
+<span class="pc bpc" id="L44" title="2 of 6 branches missed.">        return this == BATCH || this == CLUSTER || this == WAVE;</span>
+    }
+
+    public int getMaxOrdersPerSession() {
+<span class="pc bpc" id="L48" title="4 of 6 branches missed.">        return switch (this) {</span>
+<span class="fc" id="L49">            case SINGLE -&gt; 1;</span>
+<span class="nc" id="L50">            case BATCH -&gt; 10;</span>
+<span class="nc" id="L51">            case ZONE -&gt; 20;</span>
+<span class="fc" id="L52">            case WAVE -&gt; 50;</span>
+<span class="nc" id="L53">            case CLUSTER -&gt; 8; // Limited by cart capacity</span>
+        };
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

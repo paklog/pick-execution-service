@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PickSessionService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pick-execution-service</a> &gt; <a href="index.source.html" class="el_package">com.paklog.wes.pick.application.service</a> &gt; <span class="el_source">PickSessionService.java</span></div><h1>PickSessionService.java</h1><pre class="source lang-java linenums">package com.paklog.wes.pick.application.service;
+
+import com.paklog.wes.pick.application.command.ConfirmPickCommand;
+import com.paklog.wes.pick.application.command.HandleShortPickCommand;
+import com.paklog.wes.pick.application.command.StartPickSessionCommand;
+import com.paklog.wes.pick.domain.aggregate.PickSession;
+import com.paklog.wes.pick.domain.entity.PickInstruction;
+import com.paklog.wes.pick.domain.repository.PickSessionRepository;
+import com.paklog.wes.pick.domain.service.PathOptimizationService;
+import com.paklog.wes.pick.domain.valueobject.Location;
+import com.paklog.wes.pick.domain.valueobject.PickPath;
+import com.paklog.wes.pick.domain.valueobject.SessionStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * Application service for managing pick sessions
+ * Orchestrates domain logic and infrastructure
+ */
+@Service
+public class PickSessionService {
+
+<span class="fc" id="L28">    private static final Logger logger = LoggerFactory.getLogger(PickSessionService.class);</span>
+
+    private final PickSessionRepository sessionRepository;
+    private final PathOptimizationService pathOptimizationService;
+
+    public PickSessionService(
+            PickSessionRepository sessionRepository,
+            PathOptimizationService pathOptimizationService
+<span class="fc" id="L36">    ) {</span>
+<span class="fc" id="L37">        this.sessionRepository = sessionRepository;</span>
+<span class="fc" id="L38">        this.pathOptimizationService = pathOptimizationService;</span>
+<span class="fc" id="L39">    }</span>
+
+    /**
+     * Create and start a new pick session
+     */
+    @Transactional
+    public PickSession createSession(StartPickSessionCommand command) {
+<span class="fc" id="L46">        logger.info(&quot;Creating pick session for task: {}, worker: {}&quot;, command.taskId(), command.workerId());</span>
+
+        // Check if worker already has active session
+<span class="fc" id="L49">        Optional&lt;PickSession&gt; existingSession = sessionRepository.findActiveSessionByWorkerId(command.workerId());</span>
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        if (existingSession.isPresent()) {</span>
+<span class="fc" id="L51">            throw new IllegalStateException(</span>
+<span class="fc" id="L52">                    &quot;Worker &quot; + command.workerId() + &quot; already has an active session: &quot; + existingSession.get().getSessionId()</span>
+            );
+        }
+
+        // Create session
+<span class="fc" id="L57">        PickSession session = PickSession.create(</span>
+<span class="fc" id="L58">                command.taskId(),</span>
+<span class="fc" id="L59">                command.workerId(),</span>
+<span class="fc" id="L60">                command.warehouseId(),</span>
+<span class="fc" id="L61">                command.strategy(),</span>
+<span class="fc" id="L62">                command.cartId(),</span>
+<span class="fc" id="L63">                command.instructions()</span>
+        );
+
+        // Optimize path
+<span class="fc" id="L67">        Location startLocation = getWorkerStartLocation(command.workerId());</span>
+<span class="fc" id="L68">        PickPath optimizedPath = pathOptimizationService.optimizePath(command.instructions(), startLocation);</span>
+
+<span class="fc" id="L70">        logger.info(&quot;Path optimized: {} instructions, distance: {}, duration: {}&quot;,</span>
+<span class="fc" id="L71">                optimizedPath.getTotalPicks(), optimizedPath.totalDistance(), optimizedPath.estimatedDuration());</span>
+
+        // Start session with optimized path
+<span class="fc" id="L74">        session.start(optimizedPath);</span>
+
+        // Save
+<span class="fc" id="L77">        PickSession savedSession = sessionRepository.save(session);</span>
+
+<span class="fc" id="L79">        logger.info(&quot;Pick session created: {}&quot;, savedSession.getSessionId());</span>
+
+<span class="fc" id="L81">        return savedSession;</span>
+    }
+
+    /**
+     * Confirm a pick
+     */
+    @Transactional
+    public PickSession confirmPick(ConfirmPickCommand command) {
+<span class="fc" id="L89">        logger.debug(&quot;Confirming pick: session={}, instruction={}, quantity={}&quot;,</span>
+<span class="fc" id="L90">                command.sessionId(), command.instructionId(), command.quantity());</span>
+
+<span class="fc" id="L92">        PickSession session = findSessionById(command.sessionId());</span>
+<span class="fc" id="L93">        session.confirmPick(command.instructionId(), command.quantity());</span>
+
+<span class="fc" id="L95">        return sessionRepository.save(session);</span>
+    }
+
+    /**
+     * Handle short pick
+     */
+    @Transactional
+    public PickSession handleShortPick(HandleShortPickCommand command) {
+<span class="fc" id="L103">        logger.warn(&quot;Short pick: session={}, instruction={}, actual={}, reason={}&quot;,</span>
+<span class="fc" id="L104">                command.sessionId(), command.instructionId(), command.actualQuantity(), command.reason());</span>
+
+<span class="fc" id="L106">        PickSession session = findSessionById(command.sessionId());</span>
+<span class="fc" id="L107">        session.shortPick(command.instructionId(), command.actualQuantity(), command.reason());</span>
+
+<span class="fc" id="L109">        return sessionRepository.save(session);</span>
+    }
+
+    /**
+     * Pause session
+     */
+    @Transactional
+    public PickSession pauseSession(String sessionId) {
+<span class="fc" id="L117">        logger.info(&quot;Pausing session: {}&quot;, sessionId);</span>
+
+<span class="fc" id="L119">        PickSession session = findSessionById(sessionId);</span>
+<span class="fc" id="L120">        session.pause();</span>
+
+<span class="fc" id="L122">        return sessionRepository.save(session);</span>
+    }
+
+    /**
+     * Resume session
+     */
+    @Transactional
+    public PickSession resumeSession(String sessionId) {
+<span class="fc" id="L130">        logger.info(&quot;Resuming session: {}&quot;, sessionId);</span>
+
+<span class="fc" id="L132">        PickSession session = findSessionById(sessionId);</span>
+<span class="fc" id="L133">        session.resume();</span>
+
+<span class="fc" id="L135">        return sessionRepository.save(session);</span>
+    }
+
+    /**
+     * Complete session
+     */
+    @Transactional
+    public PickSession completeSession(String sessionId) {
+<span class="fc" id="L143">        logger.info(&quot;Completing session: {}&quot;, sessionId);</span>
+
+<span class="fc" id="L145">        PickSession session = findSessionById(sessionId);</span>
+<span class="fc" id="L146">        session.complete();</span>
+
+<span class="fc" id="L148">        PickSession completedSession = sessionRepository.save(session);</span>
+
+<span class="fc" id="L150">        logger.info(&quot;Session completed: {}, accuracy: {}%&quot;,</span>
+<span class="fc" id="L151">                sessionId, String.format(&quot;%.1f&quot;, completedSession.calculateAccuracy()));</span>
+
+<span class="fc" id="L153">        return completedSession;</span>
+    }
+
+    /**
+     * Cancel session
+     */
+    @Transactional
+    public PickSession cancelSession(String sessionId, String reason) {
+<span class="fc" id="L161">        logger.warn(&quot;Cancelling session: {}, reason: {}&quot;, sessionId, reason);</span>
+
+<span class="fc" id="L163">        PickSession session = findSessionById(sessionId);</span>
+<span class="fc" id="L164">        session.cancel(reason);</span>
+
+<span class="fc" id="L166">        return sessionRepository.save(session);</span>
+    }
+
+    /**
+     * Get session by ID
+     */
+    public PickSession getSession(String sessionId) {
+<span class="fc" id="L173">        return findSessionById(sessionId);</span>
+    }
+
+    /**
+     * Get current instruction for session
+     */
+    public PickInstruction getCurrentInstruction(String sessionId) {
+<span class="fc" id="L180">        PickSession session = findSessionById(sessionId);</span>
+<span class="fc" id="L181">        PickInstruction current = session.getCurrentInstruction();</span>
+
+<span class="fc bfc" id="L183" title="All 2 branches covered.">        if (current == null) {</span>
+<span class="fc" id="L184">            throw new IllegalStateException(&quot;No current instruction for session: &quot; + sessionId);</span>
+        }
+
+<span class="fc" id="L187">        return current;</span>
+    }
+
+    /**
+     * Get active session for worker
+     */
+    public Optional&lt;PickSession&gt; getActiveSessionForWorker(String workerId) {
+<span class="fc" id="L194">        return sessionRepository.findActiveSessionByWorkerId(workerId);</span>
+    }
+
+    /**
+     * Get session progress
+     */
+    public SessionProgress getSessionProgress(String sessionId) {
+<span class="fc" id="L201">        PickSession session = findSessionById(sessionId);</span>
+
+<span class="fc" id="L203">        return new SessionProgress(</span>
+<span class="fc" id="L204">                session.getSessionId(),</span>
+<span class="fc" id="L205">                session.getStatus(),</span>
+<span class="fc" id="L206">                session.getProgress(),</span>
+<span class="fc" id="L207">                session.getCompletedInstructionCount(),</span>
+<span class="fc" id="L208">                session.getPickInstructions().size(),</span>
+<span class="fc" id="L209">                session.getShortPickCount(),</span>
+<span class="fc" id="L210">                session.calculateAccuracy(),</span>
+<span class="fc" id="L211">                session.getDuration()</span>
+        );
+    }
+
+    /**
+     * Get all active sessions
+     */
+    public List&lt;PickSession&gt; getActiveSessions() {
+<span class="fc" id="L219">        return sessionRepository.findByStatus(SessionStatus.IN_PROGRESS);</span>
+    }
+
+    /**
+     * Get sessions by warehouse
+     */
+    public List&lt;PickSession&gt; getSessionsByWarehouse(String warehouseId) {
+<span class="fc" id="L226">        return sessionRepository.findByWarehouseId(warehouseId);</span>
+    }
+
+    // Helper methods
+
+    private PickSession findSessionById(String sessionId) {
+<span class="fc" id="L232">        return sessionRepository.findById(sessionId)</span>
+<span class="pc" id="L233">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Session not found: &quot; + sessionId));</span>
+    }
+
+    private Location getWorkerStartLocation(String workerId) {
+        // TODO: Get actual worker location from worker service
+        // For now, return default location
+<span class="fc" id="L239">        return new Location(&quot;A&quot;, &quot;01&quot;, &quot;01&quot;, &quot;01&quot;);</span>
+    }
+
+    /**
+     * Session progress information
+     */
+<span class="fc" id="L245">    public record SessionProgress(</span>
+            String sessionId,
+            SessionStatus status,
+            double progressPercentage,
+            int completedInstructions,
+            int totalInstructions,
+            int shortPicks,
+            double accuracy,
+            java.time.Duration duration
+    ) {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

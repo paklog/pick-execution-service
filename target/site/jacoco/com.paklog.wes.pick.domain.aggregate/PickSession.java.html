@@ -1,0 +1,581 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PickSession.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pick-execution-service</a> &gt; <a href="index.source.html" class="el_package">com.paklog.wes.pick.domain.aggregate</a> &gt; <span class="el_source">PickSession.java</span></div><h1>PickSession.java</h1><pre class="source lang-java linenums">package com.paklog.wes.pick.domain.aggregate;
+
+import com.paklog.domain.annotation.AggregateRoot;
+import com.paklog.domain.shared.DomainEvent;
+import com.paklog.wes.pick.domain.entity.PickInstruction;
+import com.paklog.wes.pick.domain.event.PickConfirmedEvent;
+import com.paklog.wes.pick.domain.event.PickSessionCancelledEvent;
+import com.paklog.wes.pick.domain.event.PickSessionCompletedEvent;
+import com.paklog.wes.pick.domain.event.PickSessionStartedEvent;
+import com.paklog.wes.pick.domain.event.ShortPickEvent;
+import com.paklog.wes.pick.domain.valueobject.InstructionStatus;
+import com.paklog.wes.pick.domain.valueobject.PickPath;
+import com.paklog.wes.pick.domain.valueobject.PickStrategy;
+import com.paklog.wes.pick.domain.valueobject.SessionStatus;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+/**
+ * PickSession aggregate root
+ * Manages the complete lifecycle of a picking session
+ */
+@AggregateRoot
+@Document(collection = &quot;pick_sessions&quot;)
+public class PickSession {
+
+    @Id
+    private String sessionId;
+
+    @Version
+    private Long version;
+
+    private String taskId;
+    private String workerId;
+    private String warehouseId;
+    private PickStrategy strategy;
+    private SessionStatus status;
+    private String cartId;
+    private List&lt;PickInstruction&gt; pickInstructions;
+    private PickPath optimizedPath;
+    private LocalDateTime createdAt;
+    private LocalDateTime startedAt;
+    private LocalDateTime completedAt;
+    private LocalDateTime pausedAt;
+    private int currentInstructionIndex;
+    private String cancellationReason;
+
+<span class="fc" id="L56">    private List&lt;DomainEvent&gt; domainEvents = new ArrayList&lt;&gt;();</span>
+
+    // For MongoDB/persistence
+<span class="fc" id="L59">    public PickSession() {</span>
+<span class="fc" id="L60">        this.pickInstructions = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L61">    }</span>
+
+    /**
+     * Create a new pick session
+     */
+    public static PickSession create(
+            String taskId,
+            String workerId,
+            String warehouseId,
+            PickStrategy strategy,
+            String cartId,
+            List&lt;PickInstruction&gt; instructions
+    ) {
+<span class="fc" id="L74">        PickSession session = new PickSession();</span>
+<span class="fc" id="L75">        session.sessionId = generateSessionId();</span>
+<span class="fc" id="L76">        session.taskId = Objects.requireNonNull(taskId, &quot;Task ID cannot be null&quot;);</span>
+<span class="fc" id="L77">        session.workerId = Objects.requireNonNull(workerId, &quot;Worker ID cannot be null&quot;);</span>
+<span class="fc" id="L78">        session.warehouseId = Objects.requireNonNull(warehouseId, &quot;Warehouse ID cannot be null&quot;);</span>
+<span class="fc" id="L79">        session.strategy = Objects.requireNonNull(strategy, &quot;Strategy cannot be null&quot;);</span>
+<span class="fc" id="L80">        session.cartId = Objects.requireNonNull(cartId, &quot;Cart ID cannot be null&quot;);</span>
+<span class="fc" id="L81">        session.pickInstructions = new ArrayList&lt;&gt;(Objects.requireNonNull(instructions, &quot;Instructions cannot be null&quot;));</span>
+<span class="fc" id="L82">        session.status = SessionStatus.CREATED;</span>
+<span class="fc" id="L83">        session.createdAt = LocalDateTime.now();</span>
+<span class="fc" id="L84">        session.currentInstructionIndex = 0;</span>
+
+        // Validate
+<span class="fc bfc" id="L87" title="All 2 branches covered.">        if (session.pickInstructions.isEmpty()) {</span>
+<span class="fc" id="L88">            throw new IllegalArgumentException(&quot;Session must have at least one pick instruction&quot;);</span>
+        }
+
+<span class="fc" id="L91">        return session;</span>
+    }
+
+    /**
+     * Start the pick session
+     */
+    public void start(PickPath optimizedPath) {
+<span class="fc" id="L98">        ensureStatus(SessionStatus.CREATED);</span>
+<span class="fc" id="L99">        Objects.requireNonNull(optimizedPath, &quot;Optimized path cannot be null&quot;);</span>
+
+<span class="fc" id="L101">        this.optimizedPath = optimizedPath;</span>
+<span class="fc" id="L102">        this.status = SessionStatus.IN_PROGRESS;</span>
+<span class="fc" id="L103">        this.startedAt = LocalDateTime.now();</span>
+
+        // Apply path sequence to instructions
+<span class="fc" id="L106">        applyPathSequence();</span>
+
+        // Register event
+<span class="fc" id="L109">        registerEvent(new PickSessionStartedEvent(</span>
+                this.sessionId,
+                this.taskId,
+                this.workerId,
+                this.warehouseId,
+                this.strategy,
+                this.cartId,
+<span class="fc" id="L116">                this.pickInstructions.size()</span>
+        ));
+<span class="fc" id="L118">    }</span>
+
+    /**
+     * Confirm pick for current instruction
+     */
+    public void confirmPick(String instructionId, int quantity) {
+<span class="fc" id="L124">        ensureStatus(SessionStatus.IN_PROGRESS);</span>
+
+<span class="fc" id="L126">        PickInstruction instruction = findInstruction(instructionId);</span>
+
+        // Auto-start instruction if PENDING
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">        if (instruction.getStatus() == InstructionStatus.PENDING) {</span>
+<span class="fc" id="L130">            instruction.start();</span>
+        }
+
+<span class="fc" id="L133">        instruction.confirmPick(quantity);</span>
+
+        // Register event
+<span class="fc" id="L136">        registerEvent(new PickConfirmedEvent(</span>
+                this.sessionId,
+                instructionId,
+<span class="fc" id="L139">                instruction.getItemSku(),</span>
+                quantity,
+<span class="fc" id="L141">                instruction.getLocation(),</span>
+                this.workerId
+        ));
+
+        // Move to next instruction if current is complete
+<span class="fc" id="L146">        moveToNextInstruction();</span>
+<span class="fc" id="L147">    }</span>
+
+    /**
+     * Handle short pick scenario
+     */
+    public void shortPick(String instructionId, int actualQuantity, String reason) {
+<span class="fc" id="L153">        ensureStatus(SessionStatus.IN_PROGRESS);</span>
+
+<span class="fc" id="L155">        PickInstruction instruction = findInstruction(instructionId);</span>
+
+        // Auto-start instruction if PENDING
+<span class="pc bpc" id="L158" title="1 of 2 branches missed.">        if (instruction.getStatus() == InstructionStatus.PENDING) {</span>
+<span class="fc" id="L159">            instruction.start();</span>
+        }
+
+<span class="fc" id="L162">        instruction.shortPick(actualQuantity, reason);</span>
+
+        // Register event
+<span class="fc" id="L165">        registerEvent(new ShortPickEvent(</span>
+                this.sessionId,
+                instructionId,
+<span class="fc" id="L168">                instruction.getItemSku(),</span>
+<span class="fc" id="L169">                instruction.getExpectedQuantity(),</span>
+                actualQuantity,
+<span class="fc" id="L171">                instruction.getLocation(),</span>
+                reason,
+                this.workerId
+        ));
+
+        // Move to next instruction
+<span class="fc" id="L177">        moveToNextInstruction();</span>
+<span class="fc" id="L178">    }</span>
+
+    /**
+     * Pause the session
+     */
+    public void pause() {
+<span class="fc" id="L184">        ensureStatus(SessionStatus.IN_PROGRESS);</span>
+<span class="fc" id="L185">        this.status = SessionStatus.PAUSED;</span>
+<span class="fc" id="L186">        this.pausedAt = LocalDateTime.now();</span>
+<span class="fc" id="L187">    }</span>
+
+    /**
+     * Resume the session
+     */
+    public void resume() {
+<span class="fc" id="L193">        ensureStatus(SessionStatus.PAUSED);</span>
+<span class="fc" id="L194">        this.status = SessionStatus.IN_PROGRESS;</span>
+<span class="fc" id="L195">        this.pausedAt = null;</span>
+<span class="fc" id="L196">    }</span>
+
+    /**
+     * Complete the session
+     */
+    public void complete() {
+<span class="fc" id="L202">        ensureStatus(SessionStatus.IN_PROGRESS);</span>
+
+        // Verify all instructions are complete
+<span class="pc bpc" id="L205" title="1 of 2 branches missed.">        if (hasPendingInstructions()) {</span>
+<span class="nc" id="L206">            throw new IllegalStateException(&quot;Cannot complete session with pending instructions&quot;);</span>
+        }
+
+<span class="fc" id="L209">        this.status = SessionStatus.COMPLETED;</span>
+<span class="fc" id="L210">        this.completedAt = LocalDateTime.now();</span>
+
+        // Register event
+<span class="fc" id="L213">        registerEvent(new PickSessionCompletedEvent(</span>
+                this.sessionId,
+                this.taskId,
+                this.workerId,
+                this.warehouseId,
+<span class="fc" id="L218">                this.pickInstructions.size(),</span>
+<span class="fc" id="L219">                getCompletedInstructionCount(),</span>
+<span class="fc" id="L220">                getShortPickCount(),</span>
+<span class="fc" id="L221">                calculateAccuracy(),</span>
+<span class="fc" id="L222">                getDuration()</span>
+        ));
+<span class="fc" id="L224">    }</span>
+
+    /**
+     * Cancel the session
+     */
+    public void cancel(String reason) {
+<span class="pc bpc" id="L230" title="1 of 2 branches missed.">        if (status.isTerminal()) {</span>
+<span class="nc" id="L231">            throw new IllegalStateException(&quot;Cannot cancel session in terminal state: &quot; + status);</span>
+        }
+
+<span class="fc" id="L234">        this.status = SessionStatus.CANCELLED;</span>
+<span class="fc" id="L235">        this.cancellationReason = reason;</span>
+<span class="fc" id="L236">        this.completedAt = LocalDateTime.now();</span>
+
+        // Register event
+<span class="fc" id="L239">        registerEvent(new PickSessionCancelledEvent(</span>
+                this.sessionId,
+                this.taskId,
+                this.workerId,
+                this.warehouseId,
+                reason,
+<span class="fc" id="L245">                getCompletedInstructionCount(),</span>
+<span class="fc" id="L246">                this.pickInstructions.size()</span>
+        ));
+<span class="fc" id="L248">    }</span>
+
+    /**
+     * Get current instruction
+     */
+    public PickInstruction getCurrentInstruction() {
+<span class="fc bfc" id="L254" title="All 2 branches covered.">        if (currentInstructionIndex &gt;= pickInstructions.size()) {</span>
+<span class="fc" id="L255">            return null; // All instructions completed</span>
+        }
+<span class="fc" id="L257">        return pickInstructions.get(currentInstructionIndex);</span>
+    }
+
+    /**
+     * Get next instruction
+     */
+    public PickInstruction getNextInstruction() {
+<span class="fc" id="L264">        int nextIndex = currentInstructionIndex + 1;</span>
+<span class="pc bpc" id="L265" title="1 of 2 branches missed.">        if (nextIndex &gt;= pickInstructions.size()) {</span>
+<span class="fc" id="L266">            return null;</span>
+        }
+<span class="nc" id="L268">        return pickInstructions.get(nextIndex);</span>
+    }
+
+    /**
+     * Calculate session progress
+     */
+    public double getProgress() {
+<span class="pc bpc" id="L275" title="1 of 2 branches missed.">        if (pickInstructions.isEmpty()) {</span>
+<span class="nc" id="L276">            return 100.0;</span>
+        }
+<span class="fc" id="L278">        return (getCompletedInstructionCount() / (double) pickInstructions.size()) * 100.0;</span>
+    }
+
+    /**
+     * Calculate pick accuracy
+     */
+    public double calculateAccuracy() {
+<span class="pc bpc" id="L285" title="1 of 2 branches missed.">        if (pickInstructions.isEmpty()) {</span>
+<span class="nc" id="L286">            return 100.0;</span>
+        }
+
+<span class="fc" id="L289">        int totalExpected = pickInstructions.stream()</span>
+<span class="fc" id="L290">                .mapToInt(PickInstruction::getExpectedQuantity)</span>
+<span class="fc" id="L291">                .sum();</span>
+
+<span class="fc" id="L293">        int totalPicked = pickInstructions.stream()</span>
+<span class="fc" id="L294">                .filter(i -&gt; i.getStatus().isComplete())</span>
+<span class="fc" id="L295">                .mapToInt(PickInstruction::getPickedQuantity)</span>
+<span class="fc" id="L296">                .sum();</span>
+
+<span class="pc bpc" id="L298" title="1 of 2 branches missed.">        if (totalExpected == 0) {</span>
+<span class="nc" id="L299">            return 100.0;</span>
+        }
+
+<span class="fc" id="L302">        return (totalPicked / (double) totalExpected) * 100.0;</span>
+    }
+
+    /**
+     * Get session duration
+     */
+    public Duration getDuration() {
+<span class="pc bpc" id="L309" title="1 of 2 branches missed.">        if (startedAt == null) {</span>
+<span class="nc" id="L310">            return Duration.ZERO;</span>
+        }
+
+<span class="fc bfc" id="L313" title="All 2 branches covered.">        LocalDateTime endTime = completedAt != null ? completedAt : LocalDateTime.now();</span>
+<span class="fc" id="L314">        return Duration.between(startedAt, endTime);</span>
+    }
+
+    /**
+     * Get completed instruction count
+     */
+    public int getCompletedInstructionCount() {
+<span class="fc" id="L321">        return (int) pickInstructions.stream()</span>
+<span class="fc" id="L322">                .filter(PickInstruction::isComplete)</span>
+<span class="fc" id="L323">                .count();</span>
+    }
+
+    /**
+     * Get short pick count
+     */
+    public int getShortPickCount() {
+<span class="fc" id="L330">        return (int) pickInstructions.stream()</span>
+<span class="fc" id="L331">                .filter(PickInstruction::isShortPick)</span>
+<span class="fc" id="L332">                .count();</span>
+    }
+
+    /**
+     * Check if there are pending instructions
+     */
+    public boolean hasPendingInstructions() {
+<span class="fc" id="L339">        return pickInstructions.stream()</span>
+<span class="pc bpc" id="L340" title="1 of 2 branches missed.">                .anyMatch(i -&gt; !i.isComplete());</span>
+    }
+
+    /**
+     * Get all instructions with specific status
+     */
+    public List&lt;PickInstruction&gt; getInstructionsByStatus(InstructionStatus status) {
+<span class="fc" id="L347">        return pickInstructions.stream()</span>
+<span class="fc bfc" id="L348" title="All 2 branches covered.">                .filter(i -&gt; i.getStatus() == status)</span>
+<span class="fc" id="L349">                .collect(Collectors.toList());</span>
+    }
+
+    // Private helper methods
+
+    private void applyPathSequence() {
+<span class="pc bpc" id="L355" title="2 of 4 branches missed.">        if (optimizedPath == null || optimizedPath.nodes().isEmpty()) {</span>
+<span class="nc" id="L356">            return;</span>
+        }
+
+<span class="fc bfc" id="L359" title="All 2 branches covered.">        for (PickPath.PathNode node : optimizedPath.nodes()) {</span>
+<span class="fc" id="L360">            PickInstruction instruction = pickInstructions.stream()</span>
+<span class="fc" id="L361">                    .filter(i -&gt; i.getInstructionId().equals(node.instructionId()))</span>
+<span class="fc" id="L362">                    .findFirst()</span>
+<span class="pc" id="L363">                    .orElseThrow(() -&gt; new IllegalStateException(</span>
+<span class="nc" id="L364">                            &quot;Path node references unknown instruction: &quot; + node.instructionId()));</span>
+
+<span class="fc" id="L366">            instruction.setSequenceNumber(node.sequenceNumber());</span>
+<span class="fc" id="L367">        }</span>
+
+        // Sort instructions by sequence number
+<span class="fc" id="L370">        pickInstructions.sort((a, b) -&gt; Integer.compare(a.getSequenceNumber(), b.getSequenceNumber()));</span>
+<span class="fc" id="L371">    }</span>
+
+    private void moveToNextInstruction() {
+<span class="fc bfc" id="L374" title="All 2 branches covered.">        while (currentInstructionIndex &lt; pickInstructions.size()) {</span>
+<span class="fc" id="L375">            PickInstruction current = pickInstructions.get(currentInstructionIndex);</span>
+<span class="fc bfc" id="L376" title="All 2 branches covered.">            if (current.isComplete()) {</span>
+<span class="fc" id="L377">                currentInstructionIndex++;</span>
+            } else {
+                break;
+            }
+<span class="fc" id="L381">        }</span>
+
+        // Auto-complete if all done
+<span class="pc bpc" id="L384" title="1 of 4 branches missed.">        if (currentInstructionIndex &gt;= pickInstructions.size() &amp;&amp; status == SessionStatus.IN_PROGRESS) {</span>
+<span class="fc" id="L385">            complete();</span>
+        }
+<span class="fc" id="L387">    }</span>
+
+    private PickInstruction findInstruction(String instructionId) {
+<span class="fc" id="L390">        return pickInstructions.stream()</span>
+<span class="fc" id="L391">                .filter(i -&gt; i.getInstructionId().equals(instructionId))</span>
+<span class="fc" id="L392">                .findFirst()</span>
+<span class="pc" id="L393">                .orElseThrow(() -&gt; new IllegalArgumentException(</span>
+                        &quot;Instruction not found: &quot; + instructionId));
+    }
+
+    private void ensureStatus(SessionStatus... allowedStatuses) {
+<span class="fc bfc" id="L398" title="All 2 branches covered.">        for (SessionStatus allowed : allowedStatuses) {</span>
+<span class="fc bfc" id="L399" title="All 2 branches covered.">            if (this.status == allowed) {</span>
+<span class="fc" id="L400">                return;</span>
+            }
+        }
+<span class="fc" id="L403">        throw new IllegalStateException(</span>
+<span class="fc" id="L404">                String.format(&quot;Invalid status transition. Current: %s, Expected: %s&quot;,</span>
+<span class="fc" id="L405">                        this.status, List.of(allowedStatuses))</span>
+        );
+    }
+
+    private void registerEvent(DomainEvent event) {
+<span class="fc" id="L410">        this.domainEvents.add(event);</span>
+<span class="fc" id="L411">    }</span>
+
+    private static String generateSessionId() {
+<span class="fc" id="L414">        return &quot;SESSION-&quot; + UUID.randomUUID().toString().substring(0, 8).toUpperCase();</span>
+    }
+
+    // Getters and setters
+
+    public String getSessionId() {
+<span class="fc" id="L420">        return sessionId;</span>
+    }
+
+    public void setSessionId(String sessionId) {
+<span class="nc" id="L424">        this.sessionId = sessionId;</span>
+<span class="nc" id="L425">    }</span>
+
+    public Long getVersion() {
+<span class="nc" id="L428">        return version;</span>
+    }
+
+    public void setVersion(Long version) {
+<span class="nc" id="L432">        this.version = version;</span>
+<span class="nc" id="L433">    }</span>
+
+    public String getTaskId() {
+<span class="fc" id="L436">        return taskId;</span>
+    }
+
+    public void setTaskId(String taskId) {
+<span class="nc" id="L440">        this.taskId = taskId;</span>
+<span class="nc" id="L441">    }</span>
+
+    public String getWorkerId() {
+<span class="fc" id="L444">        return workerId;</span>
+    }
+
+    public void setWorkerId(String workerId) {
+<span class="nc" id="L448">        this.workerId = workerId;</span>
+<span class="nc" id="L449">    }</span>
+
+    public String getWarehouseId() {
+<span class="fc" id="L452">        return warehouseId;</span>
+    }
+
+    public void setWarehouseId(String warehouseId) {
+<span class="nc" id="L456">        this.warehouseId = warehouseId;</span>
+<span class="nc" id="L457">    }</span>
+
+    public PickStrategy getStrategy() {
+<span class="fc" id="L460">        return strategy;</span>
+    }
+
+    public void setStrategy(PickStrategy strategy) {
+<span class="nc" id="L464">        this.strategy = strategy;</span>
+<span class="nc" id="L465">    }</span>
+
+    public SessionStatus getStatus() {
+<span class="fc" id="L468">        return status;</span>
+    }
+
+    public void setStatus(SessionStatus status) {
+<span class="nc" id="L472">        this.status = status;</span>
+<span class="nc" id="L473">    }</span>
+
+    public String getCartId() {
+<span class="fc" id="L476">        return cartId;</span>
+    }
+
+    public void setCartId(String cartId) {
+<span class="nc" id="L480">        this.cartId = cartId;</span>
+<span class="nc" id="L481">    }</span>
+
+    public List&lt;PickInstruction&gt; getPickInstructions() {
+<span class="fc" id="L484">        return pickInstructions;</span>
+    }
+
+    public void setPickInstructions(List&lt;PickInstruction&gt; pickInstructions) {
+<span class="nc" id="L488">        this.pickInstructions = pickInstructions;</span>
+<span class="nc" id="L489">    }</span>
+
+    public PickPath getOptimizedPath() {
+<span class="fc" id="L492">        return optimizedPath;</span>
+    }
+
+    public void setOptimizedPath(PickPath optimizedPath) {
+<span class="nc" id="L496">        this.optimizedPath = optimizedPath;</span>
+<span class="nc" id="L497">    }</span>
+
+    public LocalDateTime getCreatedAt() {
+<span class="fc" id="L500">        return createdAt;</span>
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+<span class="nc" id="L504">        this.createdAt = createdAt;</span>
+<span class="nc" id="L505">    }</span>
+
+    public LocalDateTime getStartedAt() {
+<span class="fc" id="L508">        return startedAt;</span>
+    }
+
+    public void setStartedAt(LocalDateTime startedAt) {
+<span class="nc" id="L512">        this.startedAt = startedAt;</span>
+<span class="nc" id="L513">    }</span>
+
+    public LocalDateTime getCompletedAt() {
+<span class="fc" id="L516">        return completedAt;</span>
+    }
+
+    public void setCompletedAt(LocalDateTime completedAt) {
+<span class="nc" id="L520">        this.completedAt = completedAt;</span>
+<span class="nc" id="L521">    }</span>
+
+    public LocalDateTime getPausedAt() {
+<span class="fc" id="L524">        return pausedAt;</span>
+    }
+
+    public void setPausedAt(LocalDateTime pausedAt) {
+<span class="nc" id="L528">        this.pausedAt = pausedAt;</span>
+<span class="nc" id="L529">    }</span>
+
+    public int getCurrentInstructionIndex() {
+<span class="fc" id="L532">        return currentInstructionIndex;</span>
+    }
+
+    public void setCurrentInstructionIndex(int currentInstructionIndex) {
+<span class="nc" id="L536">        this.currentInstructionIndex = currentInstructionIndex;</span>
+<span class="nc" id="L537">    }</span>
+
+    public String getCancellationReason() {
+<span class="fc" id="L540">        return cancellationReason;</span>
+    }
+
+    public void setCancellationReason(String cancellationReason) {
+<span class="nc" id="L544">        this.cancellationReason = cancellationReason;</span>
+<span class="nc" id="L545">    }</span>
+
+    public List&lt;DomainEvent&gt; getDomainEvents() {
+<span class="fc" id="L548">        return domainEvents;</span>
+    }
+
+    public void clearDomainEvents() {
+<span class="fc" id="L552">        this.domainEvents.clear();</span>
+<span class="fc" id="L553">    }</span>
+
+    @Override
+    public boolean equals(Object o) {
+<span class="pc bpc" id="L557" title="1 of 2 branches missed.">        if (this == o) return true;</span>
+<span class="nc bnc" id="L558" title="All 4 branches missed.">        if (o == null || getClass() != o.getClass()) return false;</span>
+<span class="nc" id="L559">        PickSession that = (PickSession) o;</span>
+<span class="nc" id="L560">        return Objects.equals(sessionId, that.sessionId);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L565">        return Objects.hash(sessionId);</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L570">        return &quot;PickSession{&quot; +</span>
+                &quot;sessionId='&quot; + sessionId + '\'' +
+                &quot;, taskId='&quot; + taskId + '\'' +
+                &quot;, workerId='&quot; + workerId + '\'' +
+                &quot;, strategy=&quot; + strategy +
+                &quot;, status=&quot; + status +
+<span class="nc" id="L576">                &quot;, instructionCount=&quot; + pickInstructions.size() +</span>
+<span class="nc" id="L577">                &quot;, progress=&quot; + String.format(&quot;%.1f%%&quot;, getProgress()) +</span>
+                '}';
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>
