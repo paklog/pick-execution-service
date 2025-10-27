@@ -1,6 +1,6 @@
 package com.paklog.wes.pick.domain.event;
 
-import com.paklog.domain.shared.DomainEvent;
+import com.paklog.wes.pick.domain.shared.DomainEvent;
 import com.paklog.wes.pick.domain.valueobject.Location;
 
 /**
@@ -72,5 +72,10 @@ public class ShortPickEvent extends DomainEvent {
 
     public String getWorkerId() {
         return workerId;
+    }
+
+    @Override
+    public String eventType() {
+        return "ShortPickEvent";
     }
 }

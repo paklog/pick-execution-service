@@ -1,6 +1,6 @@
 package com.paklog.wes.pick.domain.event;
 
-import com.paklog.domain.shared.DomainEvent;
+import com.paklog.wes.pick.domain.shared.DomainEvent;
 
 import java.time.Duration;
 
@@ -84,5 +84,10 @@ public class PickSessionCompletedEvent extends DomainEvent {
         }
         double hours = duration.toMinutes() / 60.0;
         return completedInstructions / hours;
+    }
+
+    @Override
+    public String eventType() {
+        return "PickSessionCompletedEvent";
     }
 }

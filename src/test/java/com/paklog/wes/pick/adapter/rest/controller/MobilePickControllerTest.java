@@ -1,7 +1,7 @@
 package com.paklog.wes.pick.adapter.rest.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.paklog.domain.valueobject.Priority;
+import com.paklog.wes.pick.domain.valueobject.Priority;
 import com.paklog.wes.pick.adapter.rest.dto.ConfirmPickRequest;
 import com.paklog.wes.pick.adapter.rest.dto.ShortPickRequest;
 import com.paklog.wes.pick.application.command.ConfirmPickCommand;

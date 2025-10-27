@@ -53,15 +53,15 @@ pick:
 # CloudEvents Configuration
 cloudevents:
   kafka:
-    topic: wes-pick-events
+    topic: warehouse-execution.pick-execution.events
     source: /wes/pick-execution-service
 
 # PakLog Configuration
 paklog:
   kafka:
     topics:
-      task-events: wes-task-events
-      pick-events: wes-pick-events
+      task-events: warehouse-execution.task-execution.events
+      pick-events: warehouse-execution.pick-execution.events
     consumer:
       group-id: pick-execution-service
 

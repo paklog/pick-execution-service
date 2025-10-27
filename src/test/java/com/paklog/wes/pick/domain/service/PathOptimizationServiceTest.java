@@ -1,6 +1,6 @@
 package com.paklog.wes.pick.domain.service;
 
-import com.paklog.domain.valueobject.Priority;
+import com.paklog.wes.pick.domain.valueobject.Priority;
 import com.paklog.wes.pick.domain.entity.PickInstruction;
 import com.paklog.wes.pick.domain.valueobject.Location;
 import com.paklog.wes.pick.domain.valueobject.PickPath;

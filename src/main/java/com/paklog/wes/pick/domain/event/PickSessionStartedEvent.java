@@ -1,6 +1,6 @@
 package com.paklog.wes.pick.domain.event;
 
-import com.paklog.domain.shared.DomainEvent;
+import com.paklog.wes.pick.domain.shared.DomainEvent;
 import com.paklog.wes.pick.domain.valueobject.PickStrategy;
 
 /**
@@ -61,5 +61,10 @@ public class PickSessionStartedEvent extends DomainEvent {
 
     public int getTotalInstructions() {
         return totalInstructions;
+    }
+
+    @Override
+    public String eventType() {
+        return "PickSessionStartedEvent";
     }
 }

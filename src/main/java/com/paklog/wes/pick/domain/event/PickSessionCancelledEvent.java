@@ -1,6 +1,6 @@
 package com.paklog.wes.pick.domain.event;
 
-import com.paklog.domain.shared.DomainEvent;
+import com.paklog.wes.pick.domain.shared.DomainEvent;
 
 /**
  * Domain event published when a pick session is cancelled
@@ -67,5 +67,10 @@ public class PickSessionCancelledEvent extends DomainEvent {
             return 0.0;
         }
         return (completedInstructions / (double) totalInstructions) * 100.0;
+    }
+
+    @Override
+    public String eventType() {
+        return "PickSessionCancelledEvent";
     }
 }

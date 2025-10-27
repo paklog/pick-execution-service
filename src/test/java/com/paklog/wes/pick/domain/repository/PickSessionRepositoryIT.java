@@ -1,6 +1,6 @@
 package com.paklog.wes.pick.domain.repository;
 
-import com.paklog.domain.valueobject.Priority;
+import com.paklog.wes.pick.domain.valueobject.Priority;
 import com.paklog.wes.pick.domain.aggregate.PickSession;
 import com.paklog.wes.pick.domain.entity.PickInstruction;
 import com.paklog.wes.pick.domain.valueobject.*;
