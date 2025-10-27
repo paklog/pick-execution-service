@@ -122,11 +122,7 @@
         </dependency>
 
         <!-- PakLog Common Libraries -->
-        <dependency>
-            <groupId>com.paklog.common</groupId>
-            <artifactId>paklog-domain</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
+        <!-- paklog-domain dependency removed - using service-internal domain primitives -->
         <dependency>
             <groupId>com.paklog.common</groupId>
             <artifactId>paklog-events</artifactId>

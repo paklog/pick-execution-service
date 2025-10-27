@@ -1,6 +1,6 @@
 package com.paklog.wes.pick.infrastructure.events;
 
-import com.paklog.domain.valueobject.Priority;
+import com.paklog.wes.pick.domain.valueobject.Priority;
 import com.paklog.wes.pick.application.command.StartPickSessionCommand;
 import com.paklog.wes.pick.application.service.PickSessionService;
 import com.paklog.wes.pick.domain.aggregate.PickSession;

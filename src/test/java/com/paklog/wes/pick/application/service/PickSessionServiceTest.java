@@ -1,6 +1,6 @@
 package com.paklog.wes.pick.application.service;
 
-import com.paklog.domain.valueobject.Priority;
+import com.paklog.wes.pick.domain.valueobject.Priority;
 import com.paklog.wes.pick.application.command.ConfirmPickCommand;
 import com.paklog.wes.pick.application.command.HandleShortPickCommand;
 import com.paklog.wes.pick.application.command.StartPickSessionCommand;

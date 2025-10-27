@@ -1,7 +1,7 @@
 package com.paklog.wes.pick.domain.aggregate;
 
-import com.paklog.domain.annotation.AggregateRoot;
-import com.paklog.domain.shared.DomainEvent;
+import com.paklog.wes.pick.domain.shared.AggregateRoot;
+import com.paklog.wes.pick.domain.shared.DomainEvent;
 import com.paklog.wes.pick.domain.entity.PickInstruction;
 import com.paklog.wes.pick.domain.event.PickConfirmedEvent;
 import com.paklog.wes.pick.domain.event.PickSessionCancelledEvent;

@@ -1,7 +1,7 @@
 package com.paklog.wes.pick.domain.aggregate;
 
-import com.paklog.domain.valueobject.Priority;
-import com.paklog.domain.shared.DomainEvent;
+import com.paklog.wes.pick.domain.valueobject.Priority;
+import com.paklog.wes.pick.domain.shared.DomainEvent;
 import com.paklog.wes.pick.domain.entity.PickInstruction;
 import com.paklog.wes.pick.domain.valueobject.*;
 import org.junit.jupiter.api.DisplayName;

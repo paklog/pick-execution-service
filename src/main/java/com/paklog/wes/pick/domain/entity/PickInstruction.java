@@ -1,6 +1,6 @@
 package com.paklog.wes.pick.domain.entity;
 
-import com.paklog.domain.valueobject.Priority;
+import com.paklog.wes.pick.domain.valueobject.Priority;
 import com.paklog.wes.pick.domain.valueobject.InstructionStatus;
 import com.paklog.wes.pick.domain.valueobject.Location;
 
