@@ -1,0 +1,14 @@
+com/paklog/wes/pick/domain/valueobject/SessionStatusTest.class
+com/paklog/wes/pick/domain/valueobject/PickStrategyTest.class
+com/paklog/wes/pick/application/service/PickSessionServiceTest.class
+com/paklog/wes/pick/adapter/rest/controller/PickSessionControllerTest.class
+com/paklog/wes/pick/infrastructure/events/TaskEventHandlerTest.class
+com/paklog/wes/pick/domain/valueobject/PickPathTest.class
+com/paklog/wes/pick/domain/aggregate/PickSessionTest.class
+com/paklog/wes/pick/domain/event/PickEventsTest.class
+com/paklog/wes/pick/domain/valueobject/LocationTest.class
+com/paklog/wes/pick/domain/entity/PickInstructionTest.class
+com/paklog/wes/pick/infrastructure/config/MongoConfigTest.class
+com/paklog/wes/pick/domain/repository/PickSessionRepositoryIT.class
+com/paklog/wes/pick/adapter/rest/controller/MobilePickControllerTest.class
+com/paklog/wes/pick/domain/service/PathOptimizationServiceTest.class

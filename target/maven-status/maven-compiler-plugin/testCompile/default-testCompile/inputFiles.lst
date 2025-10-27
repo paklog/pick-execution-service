@@ -1,0 +1,14 @@
+/Users/claudioed/development/github/paklog/pick-execution-service/src/test/java/com/paklog/wes/pick/domain/entity/PickInstructionTest.java
+/Users/claudioed/development/github/paklog/pick-execution-service/src/test/java/com/paklog/wes/pick/adapter/rest/controller/PickSessionControllerTest.java
+/Users/claudioed/development/github/paklog/pick-execution-service/src/test/java/com/paklog/wes/pick/domain/event/PickEventsTest.java
+/Users/claudioed/development/github/paklog/pick-execution-service/src/test/java/com/paklog/wes/pick/infrastructure/config/MongoConfigTest.java
+/Users/claudioed/development/github/paklog/pick-execution-service/src/test/java/com/paklog/wes/pick/domain/valueobject/SessionStatusTest.java
+/Users/claudioed/development/github/paklog/pick-execution-service/src/test/java/com/paklog/wes/pick/domain/aggregate/PickSessionTest.java
+/Users/claudioed/development/github/paklog/pick-execution-service/src/test/java/com/paklog/wes/pick/infrastructure/events/TaskEventHandlerTest.java
+/Users/claudioed/development/github/paklog/pick-execution-service/src/test/java/com/paklog/wes/pick/domain/service/PathOptimizationServiceTest.java
+/Users/claudioed/development/github/paklog/pick-execution-service/src/test/java/com/paklog/wes/pick/application/service/PickSessionServiceTest.java
+/Users/claudioed/development/github/paklog/pick-execution-service/src/test/java/com/paklog/wes/pick/domain/valueobject/LocationTest.java
+/Users/claudioed/development/github/paklog/pick-execution-service/src/test/java/com/paklog/wes/pick/domain/repository/PickSessionRepositoryIT.java
+/Users/claudioed/development/github/paklog/pick-execution-service/src/test/java/com/paklog/wes/pick/adapter/rest/controller/MobilePickControllerTest.java
+/Users/claudioed/development/github/paklog/pick-execution-service/src/test/java/com/paklog/wes/pick/domain/valueobject/PickStrategyTest.java
+/Users/claudioed/development/github/paklog/pick-execution-service/src/test/java/com/paklog/wes/pick/domain/valueobject/PickPathTest.java
